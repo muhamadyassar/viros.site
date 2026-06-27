@@ -1,23 +1,6 @@
 """
-db_json.py
-============================================================
-Layer database berbasis file JSON — pengganti MySQL.
-Tidak ada satu pun query SQL di file ini.
-
-Struktur data disimpan di data/db.json dengan bentuk:
-{
-    "users": [ {...}, {...} ],
-    "purchase_orders": [ {...}, {...} ],
-    "po_items": [ {...}, {...} ],
-    "po_history": [ {...}, {...} ],
-    "_next_id": {"users": 6, "purchase_orders": 1, "po_items": 1, "po_history": 1}
-}
-
-Setiap "tabel" lama sekarang hanyalah list of dict di dalam JSON ini.
-Semua operasi (select/insert/update/delete/join/group by/order by)
-ditulis ulang sebagai operasi Python murni terhadap list/dict tersebut.
+db_json.py - Database berbasis file JSON
 """
-
 import json
 import os
 import threading
@@ -25,16 +8,14 @@ import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
-DB_FILE  = os.path.join(DATA_DIR, 'db.json')
+DB_FILE = os.path.join(DATA_DIR, 'db.json')
 
 _lock = threading.Lock()
 
 TABLES = ['users', 'purchase_orders', 'po_items', 'po_history']
 
-
 def _now_str():
     return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
 
 def _empty_db():
     return {
@@ -45,19 +26,16 @@ def _empty_db():
         '_next_id': {t: 1 for t in TABLES},
     }
 
-
 def _ensure_file():
     os.makedirs(DATA_DIR, exist_ok=True)
     if not os.path.exists(DB_FILE):
         with open(DB_FILE, 'w', encoding='utf-8') as f:
             json.dump(_empty_db(), f, ensure_ascii=False, indent=2)
 
-
 def _load():
     _ensure_file()
     with open(DB_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    # jaga-jaga kalau ada tabel/kunci yang belum ada (migrasi data lama)
     for t in TABLES:
         data.setdefault(t, [])
     data.setdefault('_next_id', {})
@@ -65,30 +43,18 @@ def _load():
         data['_next_id'].setdefault(t, 1)
     return data
 
-
 def _save(data):
     tmp_path = DB_FILE + '.tmp'
     with open(tmp_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2, default=str)
     os.replace(tmp_path, DB_FILE)
 
-
 class JSONDatabase:
-    """
-    Pengganti koneksi MySQL. Setiap pemanggilan method membuka,
-    mengubah, lalu menyimpan kembali file db.json (thread-safe
-    dengan lock sederhana, cocok untuk skala aplikasi kecil/menengah).
-    """
-
-    # ------------------------------------------------------------
-    # Operasi dasar
-    # ------------------------------------------------------------
     def all(self, table):
         data = _load()
         return list(data[table])
 
     def find(self, table, predicate=None):
-        """predicate: fungsi(row) -> bool. Jika None, kembalikan semua."""
         rows = self.all(table)
         if predicate is None:
             return rows
@@ -154,19 +120,16 @@ class JSONDatabase:
     def count(self, table, predicate=None):
         return len(self.find(table, predicate))
 
-
 db = JSONDatabase()
 
-
 # ============================================================
-# SEED DATA — menggantikan db_po_keluar_1.sql
-# Dijalankan otomatis sekali saat file data/db.json belum ada.
+# SEED DATA
 # ============================================================
 def seed_if_empty():
     _ensure_file()
     data = _load()
     if data['users']:
-        return  # sudah ada data, jangan timpa
+        return
 
     seed_users = [
         {
@@ -202,6 +165,5 @@ def seed_if_empty():
     ]
     for u in seed_users:
         db.insert('users', u)
-
 
 seed_if_empty()
