@@ -7,17 +7,19 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+import os
 
-from db_json import db  # << pengganti pymysql, database berbasis file JSON
+from db_json import db
 
 app = Flask(__name__)
-app.secret_key = 'viros_secret_key_2024'
+app.secret_key = os.environ.get('SECRET_KEY', 'viros_secret_key_2024')
 
-SMTP_HOST     = 'smtp.gmail.com'
-SMTP_PORT     = 587
-SMTP_USER     = 'tokonnso1@gmail.com'
-SMTP_PASSWORD = 'trrdfecr qzbqjrji'
-SMTP_USE_TLS  = True
+# Konfigurasi SMTP dari Environment Variables
+SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
+SMTP_USER = os.environ.get('SMTP_USER', 'tokonnso1@gmail.com')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', 'trrdfecr qzbqjrji')
+SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', 'true').lower() == 'true'
 
 # ============================================================
 # DECORATOR
@@ -56,16 +58,16 @@ def save_history(po_id, old_status, new_status, note=''):
     })
 
 def hitung_total(items_subtotal, discount_pct):
-    total          = float(items_subtotal)
-    diskon_amt     = round(total * float(discount_pct) / 100, 2)
-    after_disc     = total - diskon_amt
-    pajak_amt      = round(after_disc * 11 / 100, 2)
+    total = float(items_subtotal)
+    diskon_amt = round(total * float(discount_pct) / 100, 2)
+    after_disc = total - diskon_amt
+    pajak_amt = round(after_disc * 11 / 100, 2)
     subtotal_akhir = round(after_disc + pajak_amt, 2)
     return {
-        'total'          : total,
-        'diskon_amt'     : diskon_amt,
-        'pajak_amt'      : pajak_amt,
-        'subtotal_akhir' : subtotal_akhir
+        'total': total,
+        'diskon_amt': diskon_amt,
+        'pajak_amt': pajak_amt,
+        'subtotal_akhir': subtotal_akhir
     }
 
 def _username_by_id(user_id):
@@ -73,13 +75,6 @@ def _username_by_id(user_id):
     return u['username'] if u else None
 
 def _parse_dt(value):
-    """Parse string datetime 'YYYY-MM-DD HH:MM:SS' jadi objek datetime.
-    Dulu (saat masih MySQL) pymysql otomatis mengembalikan kolom
-    DATE/DATETIME sebagai objek datetime/date Python, sehingga
-    template .html bisa langsung memanggil .strftime(...).
-    Sekarang data tersimpan sebagai string JSON, jadi kita perlu
-    mem-parsing-nya kembali jadi objek datetime di sini supaya
-    SEMUA template lama tetap berfungsi tanpa perlu diubah."""
     if not value:
         return None
     if isinstance(value, (datetime.datetime, datetime.date)):
@@ -91,7 +86,6 @@ def _parse_dt(value):
             continue
     return None
 
-# Field-field bertipe tanggal/waktu di setiap "tabel" (dulu DATE/DATETIME di MySQL)
 _DATE_FIELDS = {
     'purchase_orders': ['order_date', 'created_at', 'updated_at'],
     'users': ['created_at', 'updated_at'],
@@ -99,9 +93,6 @@ _DATE_FIELDS = {
 }
 
 def _hydrate_dates(row, table):
-    """Ubah field tanggal (string) jadi objek datetime, meniru perilaku
-    pymysql DictCursor terhadap kolom DATE/DATETIME, agar template
-    .strftime(...) yang sudah ada tidak perlu diubah."""
     if row is None:
         return None
     row = dict(row)
@@ -110,7 +101,6 @@ def _hydrate_dates(row, table):
     return row
 
 def _attach_created_by_name(po):
-    """Tiru efek LEFT JOIN users u ON po.created_by = u.id"""
     po = _hydrate_dates(po, 'purchase_orders')
     if po is None:
         return None
@@ -131,16 +121,22 @@ def login():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     if request.method == 'POST':
-        email    = request.form['email']
+        email = request.form['email']
         password = request.form['password']
 
         user = db.find_one('users', lambda u: u['email'] == email and u.get('is_active', 1) in (1, True))
 
         if user and check_password_hash(user['password'], password):
-            session['user_id']  = user['id']
+            session['user_id'] = user['id']
             session['username'] = user['username']
-            session['role']     = user['role']
-            session['email']    = user['email']
+            session['role'] = user['role']
+            session['email'] = user['email']
+            
+            # Remember me (30 hari)
+            if request.form.get('remember'):
+                session.permanent = True
+                app.permanent_session_lifetime = datetime.timedelta(days=30)
+            
             flash(f'Selamat datang, {user["username"]}!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -163,12 +159,12 @@ def dashboard():
 
     all_pos = db.all('purchase_orders')
 
-    total_po     = len(all_pos)
-    pending_po   = sum(1 for p in all_pos if p.get('status') == 'pending')
-    approved_po  = sum(1 for p in all_pos if p.get('status') == 'approved')
+    total_po = len(all_pos)
+    pending_po = sum(1 for p in all_pos if p.get('status') == 'pending')
+    approved_po = sum(1 for p in all_pos if p.get('status') == 'approved')
     completed_po = sum(1 for p in all_pos if p.get('status') == 'completed')
-    rejected_po  = sum(1 for p in all_pos if p.get('status') == 'rejected')
-    total_nilai  = sum(float(p.get('total_amount') or 0) for p in all_pos)
+    rejected_po = sum(1 for p in all_pos if p.get('status') == 'rejected')
+    total_nilai = sum(float(p.get('total_amount') or 0) for p in all_pos)
 
     recent_pos = sorted(
         all_pos, key=lambda p: _parse_dt(p.get('created_at')) or datetime.datetime.min,
@@ -176,14 +172,14 @@ def dashboard():
     )[:10]
     recent_pos = [_attach_created_by_name(p) for p in recent_pos]
 
-    # Tren pengeluaran bulanan 12 bulan terakhir
+    # Tren pengeluaran bulanan
     batas_12bln = now - datetime.timedelta(days=365)
-    bulan_map = {}  # key 'YYYY-MM' -> {'label': 'Jan', 'total': 0}
+    bulan_map = {}
     for p in all_pos:
         od = _parse_dt(p.get('order_date'))
         if od is None or od < batas_12bln:
             continue
-        key   = od.strftime('%Y-%m')
+        key = od.strftime('%Y-%m')
         label = od.strftime('%b')
         bulan_map.setdefault(key, {'label': label, 'total': 0.0})
         bulan_map[key]['total'] += float(p.get('total_amount') or 0)
@@ -196,12 +192,13 @@ def dashboard():
     vendor_map = {}
     for p in all_pos:
         v = p.get('vendor_name')
-        vendor_map[v] = vendor_map.get(v, 0.0) + float(p.get('total_amount') or 0)
+        if v:
+            vendor_map[v] = vendor_map.get(v, 0.0) + float(p.get('total_amount') or 0)
     vendor_sorted = sorted(vendor_map.items(), key=lambda kv: kv[1], reverse=True)[:5]
     vendor_labels = [v for v, _ in vendor_sorted]
     vendor_values = [val for _, val in vendor_sorted]
 
-    # Distribusi status PO untuk donut chart
+    # Distribusi status
     status_map = {}
     for p in all_pos:
         s = p.get('status')
@@ -209,14 +206,14 @@ def dashboard():
 
     donut_labels = ['Disetujui', 'Proses', 'Ditolak', 'Selesai', 'Revisi']
     donut_values = [
-        status_map.get('approved',  0),
-        status_map.get('pending',   0),
-        status_map.get('rejected',  0),
+        status_map.get('approved', 0),
+        status_map.get('pending', 0),
+        status_map.get('rejected', 0),
         status_map.get('completed', 0),
-        status_map.get('revision',  0),
+        status_map.get('revision', 0),
     ]
 
-    # Rata-rata waktu approval dalam hari
+    # Rata-rata waktu approval
     all_history = db.all('po_history')
     po_by_id = {p['id']: p for p in all_pos}
     durasi_jam = []
@@ -233,21 +230,21 @@ def dashboard():
     avg_approval = round((sum(durasi_jam) / len(durasi_jam) / 24.0) if durasi_jam else 0.0, 1)
 
     return render_template('dashboard.html',
-        now           = now,
-        total_po      = total_po,
-        pending_po    = pending_po,
-        approved_po   = approved_po,
-        completed_po  = completed_po,
-        rejected_po   = rejected_po,
-        total_nilai   = total_nilai,
-        recent_pos    = recent_pos,
-        avg_approval  = avg_approval,
-        tren_labels   = tren_labels,
-        tren_values   = tren_values,
-        vendor_labels = vendor_labels,
-        vendor_values = vendor_values,
-        donut_labels  = donut_labels,
-        donut_values  = donut_values,
+        now=now,
+        total_po=total_po,
+        pending_po=pending_po,
+        approved_po=approved_po,
+        completed_po=completed_po,
+        rejected_po=rejected_po,
+        total_nilai=total_nilai,
+        recent_pos=recent_pos,
+        avg_approval=avg_approval,
+        tren_labels=tren_labels,
+        tren_values=tren_values,
+        vendor_labels=vendor_labels,
+        vendor_values=vendor_values,
+        donut_labels=donut_labels,
+        donut_values=donut_values,
     )
 
 # ============================================================
@@ -256,7 +253,7 @@ def dashboard():
 @app.route('/po')
 @login_required
 def po_list():
-    search        = request.args.get('search', '')
+    search = request.args.get('search', '')
     status_filter = request.args.get('status', '')
 
     all_pos = db.all('purchase_orders')
@@ -278,35 +275,35 @@ def po_list():
     pos = sorted(pos, key=lambda p: _parse_dt(p.get('created_at')) or datetime.datetime.min, reverse=True)
     pos = [_attach_created_by_name(p) for p in pos]
 
-    total      = len(all_pos)
-    pending    = sum(1 for p in all_pos if p.get('status') == 'pending')
-    total_val  = sum(float(p.get('total_amount') or 0) for p in all_pos)
-    revision   = sum(1 for p in all_pos if p.get('status') == 'revision')
+    total = len(all_pos)
+    pending = sum(1 for p in all_pos if p.get('status') == 'pending')
+    total_val = sum(float(p.get('total_amount') or 0) for p in all_pos)
+    revision = sum(1 for p in all_pos if p.get('status') == 'revision')
 
     return render_template('po_list.html', pos=pos, search=search,
         status_filter=status_filter, total=total, pending=pending,
         total_val=total_val, revision=revision)
 
 # ============================================================
-# PO CREATE — Admin & Staff saja
+# PO CREATE
 # ============================================================
 @app.route('/po/create', methods=['GET', 'POST'])
 @login_required
 @role_required('admin', 'staff')
 def po_create():
     if request.method == 'POST':
-        vendor_name      = request.form['vendor_name']
+        vendor_name = request.form['vendor_name']
         customer_company = request.form['customer_company']
-        order_date       = request.form['order_date']
-        notes            = request.form.get('notes', '')
+        order_date = request.form['order_date']
+        notes = request.form.get('notes', '')
         terms_conditions = request.form.get('terms_conditions', '')
-        discount_pct     = float(request.form.get('discount', 0) or 0)
-        prepared_by      = request.form.get('prepared_by', '')
-        approved_by      = request.form.get('approved_by', '')
+        discount_pct = float(request.form.get('discount', 0) or 0)
+        prepared_by = request.form.get('prepared_by', '')
+        approved_by = request.form.get('approved_by', '')
 
-        items       = request.form.getlist('item_name[]')
-        qtys        = request.form.getlist('qty[]')
-        units       = request.form.getlist('unit[]')
+        items = request.form.getlist('item_name[]')
+        qtys = request.form.getlist('qty[]')
+        units = request.form.getlist('unit[]')
         unit_prices = request.form.getlist('unit_price[]')
 
         if not items or not items[0]:
@@ -318,11 +315,11 @@ def po_create():
             for i in range(len(items)) if items[i]
         )
 
-        calc         = hitung_total(items_subtotal, discount_pct)
+        calc = hitung_total(items_subtotal, discount_pct)
         total_amount = calc['subtotal_akhir']
-        pajak_amt    = calc['pajak_amt']
+        pajak_amt = calc['pajak_amt']
 
-        count     = db.count('purchase_orders') + 1
+        count = db.count('purchase_orders') + 1
         po_number = f"PO-{datetime.datetime.now().strftime('%Y%m')}-{str(count).zfill(4)}"
 
         po_id = db.insert('purchase_orders', {
@@ -387,7 +384,7 @@ def po_detail(po_id):
                            history=history, calc=calc)
 
 # ============================================================
-# PO EDIT — Admin & Staff saja
+# PO EDIT
 # ============================================================
 @app.route('/po/<int:po_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -403,27 +400,27 @@ def po_edit(po_id):
     items = sorted(items, key=lambda i: i['id'])
 
     if request.method == 'POST':
-        vendor_name      = request.form['vendor_name']
+        vendor_name = request.form['vendor_name']
         customer_company = request.form['customer_company']
-        order_date       = request.form['order_date']
-        notes            = request.form.get('notes', '')
+        order_date = request.form['order_date']
+        notes = request.form.get('notes', '')
         terms_conditions = request.form.get('terms_conditions', '')
-        discount_pct     = float(request.form.get('discount', 0) or 0)
-        new_status       = request.form.get('status', po['status'])
-        prepared_by      = request.form.get('prepared_by', po.get('prepared_by', ''))
-        approved_by      = request.form.get('approved_by', po.get('approved_by', ''))
+        discount_pct = float(request.form.get('discount', 0) or 0)
+        new_status = request.form.get('status', po['status'])
+        prepared_by = request.form.get('prepared_by', po.get('prepared_by', ''))
+        approved_by = request.form.get('approved_by', po.get('approved_by', ''))
 
         role = session.get('role')
         allowed_status = {
-            'staff'  : ['pending', 'revision'],
-            'admin'  : ['draft', 'pending', 'approved', 'rejected', 'completed', 'revision']
+            'staff': ['pending', 'revision'],
+            'admin': ['draft', 'pending', 'approved', 'rejected', 'completed', 'revision']
         }
         if new_status not in allowed_status.get(role, []):
             new_status = po['status']
 
-        item_names  = request.form.getlist('item_name[]')
-        qtys        = request.form.getlist('qty[]')
-        units       = request.form.getlist('unit[]')
+        item_names = request.form.getlist('item_name[]')
+        qtys = request.form.getlist('qty[]')
+        units = request.form.getlist('unit[]')
         unit_prices = request.form.getlist('unit_price[]')
 
         if not item_names or not item_names[0]:
@@ -435,10 +432,10 @@ def po_edit(po_id):
             for i in range(len(item_names)) if item_names[i]
         )
 
-        calc         = hitung_total(items_subtotal, discount_pct)
+        calc = hitung_total(items_subtotal, discount_pct)
         total_amount = calc['subtotal_akhir']
-        pajak_amt    = calc['pajak_amt']
-        old_status   = po['status']
+        pajak_amt = calc['pajak_amt']
+        old_status = po['status']
 
         db.update('purchase_orders', po_id, {
             'vendor_name': vendor_name,
@@ -481,7 +478,7 @@ def po_edit(po_id):
     return render_template('po_edit.html', po=po, items=items, calc=calc)
 
 # ============================================================
-# PO STATUS PAGE — Direktur & Komisaris tidak boleh akses
+# PO STATUS PAGE
 # ============================================================
 @app.route('/po/<int:po_id>/status-page')
 @login_required
@@ -500,14 +497,14 @@ def po_status_page(po_id):
 @app.route('/po/<int:po_id>/status', methods=['POST'])
 @login_required
 def po_update_status(po_id):
-    role       = session.get('role')
+    role = session.get('role')
     new_status = request.form.get('status')
-    note       = request.form.get('note', '')
+    note = request.form.get('note', '')
 
     allowed = {
-        'staff'  : ['pending', 'revision'],
+        'staff': ['pending', 'revision'],
         'manager': ['pending', 'approved', 'rejected', 'completed'],
-        'admin'  : ['draft', 'pending', 'approved', 'rejected', 'completed', 'revision']
+        'admin': ['draft', 'pending', 'approved', 'rejected', 'completed', 'revision']
     }
 
     if new_status not in allowed.get(role, []):
@@ -529,7 +526,7 @@ def po_update_status(po_id):
     return redirect(url_for('po_detail', po_id=po_id))
 
 # ============================================================
-# PO DELETE — Admin & Manager saja
+# PO DELETE
 # ============================================================
 @app.route('/po/<int:po_id>/delete', methods=['POST'])
 @login_required
@@ -562,15 +559,15 @@ def po_print(po_id):
                            calc=calc, now=datetime.datetime.now())
 
 # ============================================================
-# SEND EMAIL — Komisaris tidak boleh kirim email
+# SEND EMAIL
 # ============================================================
 @app.route('/po/<int:po_id>/send-email', methods=['POST'])
 @login_required
 @role_required('admin', 'manager', 'staff', 'direktur')
 def po_send_email(po_id):
     email_to = request.form.get('email_to', '').strip()
-    subject  = request.form.get('subject', '').strip()
-    body     = request.form.get('body', '').strip()
+    subject = request.form.get('subject', '').strip()
+    body = request.form.get('body', '').strip()
 
     if not email_to:
         flash('Email tujuan tidak boleh kosong.', 'danger')
@@ -581,28 +578,29 @@ def po_send_email(po_id):
         flash('PO tidak ditemukan.', 'danger')
         return redirect(url_for('po_list'))
     po = _attach_created_by_name(po)
-    items = db.find('po_items', lambda i: i['po_id'] == po_id)  # noqa: F841 (disiapkan utk lampiran detail jika diperlukan)
 
     try:
-        msg            = MIMEMultipart()
-        msg['From']    = SMTP_USER
-        msg['To']      = email_to
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_USER
+        msg['To'] = email_to
         msg['Subject'] = subject
 
         msg.attach(MIMEText(body, 'plain'))
 
+        # Buat attachment sederhana (text)
         pdf_content = (
             f"Purchase Order {po['po_number']}\n"
             f"Customer: {po['vendor_name']}\n"
             f"Perusahaan: {po['customer_company']}\n"
-            f"Total: Rp {po['total_amount']:,.0f}"
+            f"Total: Rp {po['total_amount']:,.0f}\n\n"
+            f"Detail lengkap: {url_for('po_detail', po_id=po_id, _external=True)}"
         ).encode('utf-8')
 
         part = MIMEBase('application', 'octet-stream')
         part.set_payload(pdf_content)
         encoders.encode_base64(part)
         part.add_header('Content-Disposition',
-                        f'attachment; filename="{po["po_number"]}.pdf"')
+                        f'attachment; filename="{po["po_number"]}.txt"')
         msg.attach(part)
 
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
@@ -628,18 +626,18 @@ def po_riwayat():
     search = request.args.get('search', '')
 
     all_history = db.all('po_history')
-    po_by_id    = {p['id']: p for p in db.all('purchase_orders')}
+    po_by_id = {p['id']: p for p in db.all('purchase_orders')}
 
     enriched = []
     for h in all_history:
         po = po_by_id.get(h.get('po_id'))
         row = _hydrate_dates(h, 'po_history')
-        row['po_number']         = po.get('po_number') if po else None
-        row['vendor_name']       = po.get('vendor_name') if po else None
-        row['customer_company']  = po.get('customer_company') if po else None
-        row['current_status']    = po.get('status') if po else None
-        row['total_amount']      = po.get('total_amount') if po else None
-        row['changed_by_name']   = _username_by_id(h.get('changed_by'))
+        row['po_number'] = po.get('po_number') if po else None
+        row['vendor_name'] = po.get('vendor_name') if po else None
+        row['customer_company'] = po.get('customer_company') if po else None
+        row['current_status'] = po.get('status') if po else None
+        row['total_amount'] = po.get('total_amount') if po else None
+        row['changed_by_name'] = _username_by_id(h.get('changed_by'))
         enriched.append(row)
 
     if search:
@@ -659,7 +657,7 @@ def po_riwayat():
                            search=search, total_log=total_log)
 
 # ============================================================
-# USER MANAGEMENT — Admin only
+# USER MANAGEMENT
 # ============================================================
 @app.route('/users')
 @login_required
@@ -669,9 +667,9 @@ def user_list():
     users = [_hydrate_dates(u, 'users') for u in users]
     users = sorted(users, key=lambda u: _parse_dt(u.get('created_at')) or datetime.datetime.min, reverse=True)
 
-    total    = len(users)
-    active   = sum(1 for u in users if u.get('is_active') in (1, True))
-    admins   = sum(1 for u in users if u.get('role') == 'admin')
+    total = len(users)
+    active = sum(1 for u in users if u.get('is_active') in (1, True))
+    admins = sum(1 for u in users if u.get('role') == 'admin')
     inactive = sum(1 for u in users if not u.get('is_active'))
 
     return render_template('user_management.html', users=users,
@@ -682,10 +680,10 @@ def user_list():
 @role_required('admin')
 def user_create():
     username = request.form['username']
-    email    = request.form['email']
+    email = request.form['email']
     password = request.form['password']
-    role     = request.form['role']
-    hashed   = generate_password_hash(password)
+    role = request.form['role']
+    hashed = generate_password_hash(password)
 
     if db.find_one('users', lambda u: u['email'] == email):
         flash('Email sudah digunakan.', 'danger')
@@ -724,5 +722,10 @@ def user_delete(user_id):
     flash('Pengguna berhasil dihapus.', 'success')
     return redirect(url_for('user_list'))
 
+# ============================================================
+# MAIN
+# ============================================================
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(debug=debug, host='0.0.0.0', port=port)
