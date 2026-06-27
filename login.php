@@ -11,7 +11,11 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = trim($_POST['email']    ?? '');
     $password = trim($_POST['password'] ?? '');
-    $user     = db_find_where('users','email',$email);
+    // Cari user dengan email tanpa membedakan huruf besar/kecil
+    $user = null;
+    foreach (db_read('users') as $row) {
+        if (strtolower($row['email'] ?? '') === strtolower($email)) { $user = $row; break; }
+    }
     if ($user && (int)$user['is_active']===1 && password_verify($password, $user['password'])) {
         $_SESSION['user_id']  = $user['id'];
         $_SESSION['username'] = $user['username'];
