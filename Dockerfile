@@ -1,12 +1,12 @@
-FROM php:8.2-apache
+FROM php:8.2-cli
 
-RUN a2dismod mpm_event mpm_worker 2>/dev/null || true \
-    && a2enmod mpm_prefork rewrite
+WORKDIR /app
 
-COPY . /var/www/html/
+COPY . /app/
 
-RUN mkdir -p /var/www/html/data \
-    && chown -R www-data:www-data /var/www/html/data \
-    && chmod -R 777 /var/www/html/data
+RUN mkdir -p /app/data \
+    && chmod -R 777 /app/data
 
-EXPOSE 80
+EXPOSE 8080
+
+CMD ["php", "-S", "0.0.0.0:8080", "-t", "/app"]
