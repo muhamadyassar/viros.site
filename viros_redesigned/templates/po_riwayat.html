@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Riwayat PO — Viros PO System{% endblock %}
+{% block topbar_title %}Riwayat Purchase Order{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <div class="page-title">Riwayat PO</div>
+        <div class="page-sub">Log seluruh perubahan status Purchase Order</div>
+    </div>
+</div>
+
+<!-- STAT -->
+<div class="stat-grid" style="margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="stat-label">Total Log</div>
+        <div class="stat-value">{{ total_log }}</div>
+    </div>
+</div>
+
+<!-- FILTER -->
+<div class="card" style="margin-bottom:16px;">
+    <div class="card-body" style="padding:16px 20px;">
+        <form method="GET" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+            <div style="flex:1;min-width:200px;">
+                <label class="form-label">Cari Riwayat</label>
+                <input type="text" name="search" class="form-control"
+                       placeholder="Nomor PO, nama customer, nama user..."
+                       value="{{ search }}">
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button type="submit" class="btn btn-primary">Cari</button>
+                <a href="{{ url_for('po_riwayat') }}" class="btn btn-outline">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:140px;">Nomor PO</th>
+                    <th>Nama Customer</th>
+                    <th>Perusahaan Customer</th>
+                    <th style="width:180px;">Perubahan Status</th>
+                    <th style="width:130px;">Diubah Oleh</th>
+                    <th style="width:150px;">Waktu</th>
+                    <th>Catatan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if histories %}
+                {% for h in histories %}
+                <tr>
+                    <td>
+                        {% if h.po_id %}
+                        <a href="{{ url_for('po_detail', po_id=h.po_id) }}"
+                           style="font-weight:700;color:var(--black);text-decoration:none;">
+                            {{ h.po_number or '-' }}
+                        </a>
+                        {% else %}
+                        <span style="color:var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ h.vendor_name or '-' }}</td>
+                    <td style="color:var(--text-muted);">{{ h.customer_company or '-' }}</td>
+                    <td>
+                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                            {% if h.old_status and h.old_status != '-' %}
+                            <span class="badge badge-{{ h.old_status }}" style="font-size:10px;">
+                                {% if h.old_status == 'draft' %}Draft
+                                {% elif h.old_status == 'pending' %}Pending
+                                {% elif h.old_status == 'approved' %}Disetujui
+                                {% elif h.old_status == 'rejected' %}Ditolak
+                                {% elif h.old_status == 'completed' %}Selesai
+                                {% elif h.old_status == 'revision' %}Revisi
+                                {% else %}{{ h.old_status }}
+                                {% endif %}
+                            </span>
+                            <span style="font-size:11px;color:var(--text-muted);">→</span>
+                            {% endif %}
+                            <span class="badge badge-{{ h.new_status }}" style="font-size:10px;">
+                                {% if h.new_status == 'draft' %}Draft
+                                {% elif h.new_status == 'pending' %}Pending
+                                {% elif h.new_status == 'approved' %}Disetujui
+                                {% elif h.new_status == 'rejected' %}Ditolak
+                                {% elif h.new_status == 'completed' %}Selesai
+                                {% elif h.new_status == 'revision' %}Revisi
+                                {% else %}{{ h.new_status }}
+                                {% endif %}
+                            </span>
+                        </div>
+                    </td>
+                    <td style="font-size:13px;">{{ h.changed_by_name or 'Sistem' }}</td>
+                    <td style="font-size:12px;color:var(--text-muted);">
+                        {{ h.changed_at.strftime('%d %b %Y, %H:%M') if h.changed_at else '-' }}
+                    </td>
+                    <td style="font-size:12px;color:var(--text-muted);">
+                        {{ h.note or '-' }}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align:center;padding:48px;color:var(--text-muted);">
+                        {% if search %}
+                        Tidak ada riwayat yang sesuai pencarian.
+                        <a href="{{ url_for('po_riwayat') }}" style="color:var(--black);">Reset</a>
+                        {% else %}
+                        Belum ada riwayat perubahan PO.
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+    {% if histories %}
+    <div style="padding:14px 20px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);">
+        Menampilkan {{ histories|length }} log
+        {% if search %}(difilter dari {{ total_log }} total log){% else %}terakhir{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

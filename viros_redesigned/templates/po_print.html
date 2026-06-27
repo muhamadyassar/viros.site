@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cetak PO {{ po.po_number }} — PT. Viros Prime Solution</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #F5F5F5; color: #000; font-size: 12px; }
+        html, body { height: 100%; }
+
+        .screen-wrap { padding: 32px; }
+        .action-header {
+            max-width: 780px; margin: 0 auto 24px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .action-header a, .action-header button {
+            font-family: 'Inter', sans-serif;
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 16px; font-size: 14px;
+            border: 1px solid #000; background: #fff; color: #000;
+            cursor: pointer; text-decoration: none; font-weight: 400;
+        }
+        .action-header button.print-btn { background: #000; color: #fff; }
+
+        .po-document {
+            max-width: 780px; margin: 0 auto;
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 32px 40px 28px;
+        }
+
+        /* ── HEADER ── */
+        .doc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding-bottom: 16px;
+            border-bottom: 1.5px solid #000;
+            margin-bottom: 16px;
+        }
+        .header-left { display: flex; align-items: flex-start; gap: 12px; }
+        .doc-logo { height: 48px; width: auto; }
+        .company-info { display: flex; flex-direction: column; gap: 2px; }
+        .company-name { font-weight: 700; font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase; }
+        .company-detail { font-size: 10px; color: #444; line-height: 1.5; }
+        .header-right { text-align: right; }
+        .po-title-big {
+            font-weight: 800; font-size: 28px; letter-spacing: 3px;
+            text-transform: uppercase; line-height: 1.1; color: #000;
+        }
+        .po-subtitle { font-size: 10px; color: #555; margin-top: 2px; text-align: right; }
+
+        /* ── META ── */
+        .po-meta {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding: 14px 0 14px;
+            border-bottom: 1.5px solid #000;
+            margin-bottom: 0;
+        }
+        .meta-left { display: flex; flex-direction: column; gap: 3px; }
+        .meta-section-title {
+            font-size: 9px; font-weight: 700; letter-spacing: 0.8px;
+            text-transform: uppercase; color: #777;
+            border-bottom: 1px solid #ccc; padding-bottom: 3px; margin-bottom: 5px;
+        }
+        .meta-company { font-weight: 700; font-size: 14px; color: #000; }
+        .meta-detail { font-size: 11px; color: #444; }
+
+        .meta-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+        .po-number-big { font-weight: 700; font-size: 20px; color: #000; margin-bottom: 8px; }
+        .meta-row {
+            display: flex; gap: 32px; align-items: center; justify-content: flex-end;
+        }
+        .meta-key { font-size: 10px; color: #555; }
+        .meta-val { font-weight: 700; font-size: 11px; color: #000; min-width: 140px; text-align: right; }
+
+        /* ── TABLE ── */
+        .items-table { width: 100%; border-collapse: collapse; margin-top: 0; }
+        .items-table thead tr {
+            border-top: 2px solid #000; border-bottom: 2px solid #000;
+        }
+        .items-table th {
+            padding: 9px 10px; font-size: 10px; font-weight: 700;
+            letter-spacing: 0.5px; text-transform: uppercase; color: #000;
+            background: #fff;
+        }
+        .items-table th:nth-child(3),
+        .items-table th:nth-child(4),
+        .items-table th:nth-child(5) { text-align: right; }
+        .items-table td {
+            padding: 10px 10px; border-bottom: 1px solid #E5E7EB; vertical-align: top;
+        }
+        .items-table td:nth-child(3) { text-align: right; }
+        .items-table td:nth-child(4) { text-align: right; }
+        .items-table td:nth-child(5) { text-align: right; }
+        .items-table tbody { border-bottom: 2px solid #000; }
+        .item-name { font-weight: 700; font-size: 12px; color: #000; }
+        .item-desc { font-size: 10px; color: #555; margin-top: 1px; }
+
+        /* ── FOOTER ── */
+        .footer-section {
+            display: flex; justify-content: space-between; gap: 32px;
+            padding-top: 16px;
+        }
+        .footer-left { flex: 1; }
+        .footer-title {
+            font-weight: 700; font-size: 11px; letter-spacing: 0.3px;
+            text-transform: uppercase; color: #000;
+            margin-bottom: 10px;
+        }
+        .footer-list { padding-left: 16px; }
+        .footer-list li { font-size: 10px; color: #333; line-height: 1.6; margin-bottom: 2px; }
+
+        .calc-table { width: 230px; flex-shrink: 0; }
+        .calc-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 5px 0; border-bottom: 1px solid #eee; font-size: 11px;
+        }
+        .calc-label { color: #444; }
+        .calc-val { font-weight: 600; color: #000; }
+        .total-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-top: 8px; margin-top: 4px;
+        }
+        .total-label-txt { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #555; letter-spacing: 0.5px; }
+        .total-amount { font-weight: 700; font-size: 18px; color: #000; }
+
+        /* ── SIGNATURES ── */
+        .signatures {
+            display: flex; justify-content: space-around; gap: 40px;
+            margin-top: 80px; padding-top: 8px;
+        }
+        .sig-block { flex: 1; display: flex; flex-direction: column; align-items: center; }
+        .sig-label {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+            text-transform: uppercase; color: #555; text-align: center; margin-bottom: 4px;
+        }
+        .sig-space { height: 80px; }
+        .sig-line { width: 80%; border-bottom: 1.5px solid #000; margin-bottom: 8px; }
+        .sig-name { font-weight: 700; font-size: 12px; color: #000; text-align: center; }
+        .sig-org { font-size: 11px; color: #444; text-align: center; margin-top: 2px; }
+
+        /* ── STAMP / FOOTER ── */
+        .doc-stamp {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            border-top: 1px dashed #ddd;
+            padding: 5px 40px;
+            text-align: center;
+            background: #fff;
+            z-index: 100;
+        }
+        .doc-stamp p { font-style: italic; font-size: 9px; color: #bbb; }
+
+        /* beri ruang bawah agar konten tidak tertimpa footer */
+        .po-document { padding-bottom: 32px; }
+
+        /* ── EMAIL BUTTON ── */
+        .action-header button.email-btn {
+            background: #fff; color: #000; border: 1px solid #000;
+        }
+        .action-header button.email-btn:hover { background: #f5f5f5; }
+
+        /* ── MODAL ── */
+        .modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 9999;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: #fff;
+            width: 100%; max-width: 480px;
+            border: 1px solid #000;
+            padding: 28px 32px;
+            font-family: 'Inter', sans-serif;
+        }
+        .modal-title {
+            font-size: 15px; font-weight: 700;
+            letter-spacing: 0.5px; text-transform: uppercase;
+            margin-bottom: 20px; padding-bottom: 12px;
+            border-bottom: 1.5px solid #000;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-close {
+            background: none; border: none; cursor: pointer;
+            font-size: 20px; line-height: 1; color: #555; padding: 0;
+        }
+        .modal-close:hover { color: #000; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: #555; margin-bottom: 6px;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%; padding: 9px 12px;
+            border: 1px solid #ccc; font-family: 'Inter', sans-serif;
+            font-size: 13px; color: #000; outline: none;
+            transition: border-color 0.15s;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus { border-color: #000; }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .modal-actions {
+            display: flex; gap: 10px; justify-content: flex-end;
+            margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee;
+        }
+        .btn-cancel {
+            padding: 8px 18px; font-size: 13px; font-family: 'Inter', sans-serif;
+            border: 1px solid #ccc; background: #fff; color: #555; cursor: pointer;
+        }
+        .btn-cancel:hover { background: #f5f5f5; }
+        .btn-send {
+            padding: 8px 20px; font-size: 13px; font-family: 'Inter', sans-serif;
+            border: 1px solid #000; background: #000; color: #fff; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-send:hover { background: #222; }
+        .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        @media print {
+            @page { size: A4; margin: 12mm 12mm 16mm 12mm; }
+            body { background: white; }
+            .screen-wrap { padding: 0; background: white; }
+            .action-header { display: none; }
+            .po-document { border: none; max-width: 100%; padding: 0 0 32px 0; }
+            .doc-stamp {
+                position: fixed;
+                bottom: 0; left: 0; right: 0;
+                border-top: 1px dashed #ddd;
+                padding: 4px 12mm;
+                background: #fff;
+                z-index: 100;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="screen-wrap">
+    <div class="action-header">
+        <a href="{{ url_for('po_detail', po_id=po.id) }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            Kembali
+        </a>
+        <div style="display:flex;gap:8px;">
+            {% if session.role != 'komisaris' %}
+            <button class="email-btn" onclick="openEmailModal()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+                Cetak &amp; Kirim Email
+            </button>
+            {% endif %}
+            <button class="print-btn" onclick="window.print()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Cetak
+            </button>
+        </div>
+    </div>
+
+    <div class="po-document">
+
+        <!-- HEADER -->
+        <div class="doc-header">
+            <div class="header-left">
+                <img class="doc-logo" src="{{ url_for('static', filename='img/logo_viros.png') }}" alt="Logo" onerror="this.style.display='none'">
+                <div class="company-info">
+                    <div class="company-name">PT. Viros Prime Solution</div>
+                    <div class="company-detail">
+                        Jalan BSD Raya Utama Ruko Alicante, 
+                        Blk. D No.55, Medang,<br> Kec.Pagedangan,
+                        Kabupaten Tangerang, Banten 15331<br>
+                        Tel: +62 21 556-85668 &bull; info@virosprimesolution.com<br>
+                        virosprimesolution.com
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="po-title-big">PURCHASE<br>ORDER</div>
+                <div class="po-subtitle">Pesanan Pembelian</div>
+            </div>
+        </div>
+
+        <!-- META -->
+        <div class="po-meta">
+            <div class="meta-left">
+                <div class="meta-section-title">Detail Vendor</div>
+                <div class="meta-company">{{ po.vendor_name }}</div>
+                <div class="meta-detail">{{ po.customer_company }}</div>
+                <div class="meta-detail">Jakarta, Indonesia</div>
+            </div>
+            <div class="meta-right">
+                <div class="po-number-big">{{ po.po_number }}</div>
+                <div class="meta-row">
+                    <span class="meta-key">Tanggal PO</span>
+                    <span class="meta-val">{{ po.order_date.strftime('%d %B %Y') if po.order_date else '-' }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-key"></span>
+                    <span class="meta-val"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ITEMS TABLE -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width:5%;">No.</th>
+                    <th style="width:45%;text-align:left;">Deskripsi</th>
+                    <th style="width:10%;">Qty</th>
+                    <th style="width:18%;">Harga Satuan</th>
+                    <th style="width:22%;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td style="font-size:11px;">{{ loop.index }}</td>
+                    <td>
+                        <div class="item-name">{{ item.item_name }}</div>
+                        <div class="item-desc">{{ item.unit }}</div>
+                    </td>
+                    <td style="font-size:11px;font-weight:500;">{{ "{:,.2f}".format(item.qty) }}</td>
+                    <td style="font-size:11px;font-weight:500;">Rp {{ "{:,.0f}".format(item.unit_price) }}</td>
+                    <td style="font-size:11px;font-weight:700;">Rp {{ "{:,.0f}".format(item.subtotal) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- FOOTER -->
+        <div class="footer-section">
+            <div class="footer-left">
+                <div class="footer-title">Syarat &amp; Ketentuan</div>
+                {% if po.terms_conditions %}
+                <div style="font-size:10px;color:#333;line-height:1.6;white-space:pre-wrap;">{{ po.terms_conditions }}</div>
+                {% else %}
+                <ul class="footer-list">
+                    <li>Pembayaran dilakukan dalam 30 hari setelah barang diterima dan faktur diserahkan.</li>
+                    <li>Harga sudah termasuk ongkos kirim ke alamat gudang yang tertera.</li>
+                    <li>Barang yang tidak sesuai pesanan akan dikembalikan atas beban penjual.</li>
+                </ul>
+                {% endif %}
+                {% if po.notes %}
+                <div style="margin-top:8px;">
+                    <div class="footer-title" style="margin-top:8px;">Catatan</div>
+                    <div style="font-size:10px;color:#333;line-height:1.6;white-space:pre-wrap;">{{ po.notes }}</div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="calc-table">
+                <div class="calc-row">
+                    <span class="calc-label">Subtotal</span>
+                    <span class="calc-val">Rp {{ "{:,.0f}".format(calc.total or 0) }}</span>
+                </div>
+                {% if po.discount and po.discount > 0 %}
+                <div class="calc-row">
+                    <span class="calc-label">Diskon ({{ po.discount or 0 }}%)</span>
+                    <span class="calc-val" style="color:#BA1A1A;">- Rp {{ "{:,.0f}".format(calc.diskon_amt or 0) }}</span>
+                </div>
+                {% endif %}
+                <div class="calc-row">
+                    <span class="calc-label">PPN (11%)</span>
+                    <span class="calc-val">Rp {{ "{:,.0f}".format(calc.pajak_amt or 0) }}</span>
+                </div>
+                <div class="total-row">
+                    <span class="total-label-txt">Total Nilai PO</span>
+                    <span class="total-amount">Rp {{ "{:,.0f}".format(calc.subtotal_akhir or 0) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SIGNATURES -->
+        <div class="signatures">
+            <div class="sig-block">
+                <div class="sig-label">Disiapkan Oleh</div>
+                <div class="sig-space"></div>
+                <div class="sig-line"></div>
+                <div class="sig-name">{{ po.prepared_by or '________________________' }}</div>
+                <div class="sig-org">PT. Viros Prime Solution</div>
+            </div>
+            <div class="sig-block">
+                <div class="sig-label">Disetujui Oleh</div>
+                <div class="sig-space"></div>
+                <div class="sig-line"></div>
+                <div class="sig-name">{{ po.approved_by or '________________________' }}</div>
+                <div class="sig-org">PT. Viros Prime Solution</div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+
+<!-- MODAL KIRIM EMAIL -->
+<div class="modal-overlay" id="emailModal">
+    <div class="modal-box">
+        <div class="modal-title">
+            <span>Kirim Email PO</span>
+            <button class="modal-close" onclick="closeEmailModal()" title="Tutup">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('po_send_email', po_id=po.id) }}" id="emailForm">
+            <div class="form-group">
+                <label>Email Tujuan <span style="color:#BA1A1A;">*</span></label>
+                <input
+                    type="email"
+                    name="email_to"
+                    id="email_to"
+                    placeholder="contoh@domain.com"
+                    value="{{ po.customer_company if '@' in (po.customer_company or '') else '' }}"
+                    required
+                >
+            </div>
+            <div class="form-group">
+                <label>Subjek Email</label>
+                <input
+                    type="text"
+                    name="subject"
+                    value="Purchase Order {{ po.po_number }} — PT. Viros Prime Solution"
+                >
+            </div>
+            <div class="form-group">
+                <label>Pesan (Opsional)</label>
+                <textarea name="body" placeholder="Tuliskan pesan tambahan di sini...">Dengan hormat,
+
+Bersama email ini kami sampaikan Purchase Order {{ po.po_number }} dari PT. Viros Prime Solution.
+
+Mohon segera konfirmasi penerimaan PO ini.
+
+Terima kasih atas kerja sama Anda.
+
+Hormat kami,
+PT. Viros Prime Solution</textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="closeEmailModal()">Batal</button>
+                <button type="submit" class="btn-send" id="btnSend">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Kirim Email
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEmailModal() {
+        document.getElementById('emailModal').classList.add('active');
+        setTimeout(() => document.getElementById('email_to').focus(), 100);
+    }
+    function closeEmailModal() {
+        document.getElementById('emailModal').classList.remove('active');
+    }
+    // Tutup modal kalau klik di luar box
+    document.getElementById('emailModal').addEventListener('click', function(e) {
+        if (e.target === this) closeEmailModal();
+    });
+    // Tutup dengan ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeEmailModal();
+    });
+    // Disable tombol kirim saat submit biar tidak double-send
+    document.getElementById('emailForm').addEventListener('submit', function() {
+        const btn = document.getElementById('btnSend');
+        btn.disabled = true;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Mengirim...';
+    });
+</script>
+
+<!-- FOOTER TETAP -->
+<div class="doc-stamp">
+    <p>Dokumen ini dicetak dari Sistem Informasi PO Keluar PT. Viros Prime Solution. {{ po.po_number }} — Dicetak: {{ now.strftime('%d %B %Y') if now else '' }}</p>
+</div>
+</body>
+</html>
