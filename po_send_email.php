@@ -41,7 +41,14 @@ try {
 
     $full_body = $body . "\n\n---\nDikirim dari Sistem PO Keluar PT. Viros Prime Solution";
 
-    if (mail($email_to, $subject, $full_body, $headers)) {
+    $mail_result = mail($email_to, $subject, $full_body, $headers);
+    error_log('[po_send_email] mail() result: ' . var_export($mail_result, true) . ' | to=' . $email_to);
+    $last_err = error_get_last();
+    if ($last_err) {
+        error_log('[po_send_email] last PHP error: ' . print_r($last_err, true));
+    }
+
+    if ($mail_result) {
         flash('success', "Email berhasil dikirim ke {$email_to}.");
     } else {
         flash('warning', 'Email mungkin tidak terkirim. Pastikan konfigurasi mail server sudah benar. Coba gunakan PHPMailer untuk SMTP Gmail.');
