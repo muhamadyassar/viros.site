@@ -28,7 +28,7 @@ if (!$po) {
 $smtp_host = 'smtp.gmail.com';
 $smtp_port = 587;
 $smtp_user = 'tokonnso1@gmail.com';      // ganti dengan email Anda
-$smtp_pass = 'trrdfecr qzbqjrji';        // ganti dengan app password Anda
+$smtp_pass = 'cmdh ofcj ufol zbqk';        // ganti dengan app password Anda
 
 try {
     // Gunakan mail() PHP bawaan jika tidak ada PHPMailer
