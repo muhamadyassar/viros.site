@@ -351,7 +351,7 @@ $max_vendor = !empty($top5) ? max(array_values($top5)) : 1;
     </div>
     <div class="table-wrap">
         <table id="tblDirektur">
-            <thead><tr><th>NO PO</th><th>PEMASOK</th><th>TANGGAL</th><th>GUDANG TUJUAN</th><th>TOTAL</th><th style="text-align:center;">STATUS</th><th style="text-align:center;">AKSI</th></tr></thead>
+            <thead><tr><th>NO PO</th><th>CUSTOMER</th><th>TANGGAL</th><th>PERUSAHAAN CUSTOMER</th><th>TOTAL</th><th style="text-align:center;">STATUS</th><th style="text-align:center;">AKSI</th></tr></thead>
             <tbody>
             <?php if (empty($recent_pos)): ?>
             <tr><td colspan="7"><div class="empty-state" style="padding:32px;"><div class="empty-state-icon">📋</div><div class="empty-title">Belum ada data PO</div></div></td></tr>
